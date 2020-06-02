@@ -2,6 +2,12 @@ import gpflowSlim as gfs
 import tensorflow as tf
 
 from core.grad_estimator import SpectralScoreEstimator, entropy_surrogate
+import os.path as osp
+import os
+import sys
+sys.path.append(osp.dirname(osp.dirname(osp.abspath(__file__))))
+
+from utils.neural_kernel import AbstractNeuralKernel
 
 
 class AbstractFVI(object):
@@ -129,8 +135,9 @@ class EntropyEstimationFVI(AbstractFVI):
         entropy_sur = entropy_surrogate(estimator, self.noisy_func_x_rand)
 
         # compute analytic cross entropy
-        kernel_matrix = self.prior_kernel.K(tf.cast(self.x_rand, tf.float64)) \
-                        + self.injected_noise ** 2 * tf.eye(tf.shape(self.x_rand)[0], dtype=tf.float64)
+        kernel_matrix = self.prior_kernel.K(tf.cast(self.x_rand, tf.float64))
+        if not isinstance(kernel_matrix, AbstractNeuralKernel):
+            kernel_matrix += self.injected_noise ** 2 * tf.eye(tf.shape(self.x_rand)[0], dtype=tf.float64)
         prior_dist = tf.contrib.distributions.MultivariateNormalFullCovariance(
             tf.zeros([tf.shape(self.x_rand)[0]], dtype=tf.float64), kernel_matrix)
         cross_entropy = -tf.reduce_mean(prior_dist.log_prob(tf.to_double(self.noisy_func_x_rand)))

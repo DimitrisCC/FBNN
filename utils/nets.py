@@ -9,6 +9,7 @@ def get_posterior(name):
         return bnn_outer(tf.nn.tanh)
     raise NameError('Not a supported name for posterior')
 
+
 def bnn_outer(activation):
     def bnn_inner(layer_sizes, logstd_init=-5.):
         @zs.reuse('posterior')
@@ -19,11 +20,12 @@ def bnn_outer(activation):
             for i, (n_in, n_out) in enumerate(zip(layer_sizes[:-1],
                                                   layer_sizes[1:])):
                 w_mean = tf.get_variable('w_mean_'+str(i), shape=[n_in, n_out],
-                                         initializer = tf.contrib.layers.xavier_initializer())
+                                         initializer=tf.contrib.layers.xavier_initializer())
                 w_logstd = tf.get_variable('w_logstd_'+str(i), shape=[n_in, n_out],
                                            initializer=tf.constant_initializer(logstd_init))
                 w_std = tf.exp(w_logstd)
-                ws = w_mean + w_std * tf.random_normal([n_particles, n_in, n_out])
+                ws = w_mean + w_std * \
+                    tf.random_normal([n_particles, n_in, n_out])
 
                 b_mean = tf.get_variable('b_mean_' + str(i), shape=[1, n_out],
                                          initializer=tf.zeros_initializer())
