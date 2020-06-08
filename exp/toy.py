@@ -29,16 +29,16 @@ parser.add_argument('-d', '--dataset', type=str, default='x3')
 parser.add_argument('-in', '--injected_noise', type=float, default=0.01)
 parser.add_argument('-il', '--init_logstd', type=float, default=-5.)
 parser.add_argument('-na', '--n_rand', type=int, default=20)
-parser.add_argument('-nh', '--n_hidden', type=int, default=2)
+parser.add_argument('-nh', '--n_hidden', type=int, default=3)
 parser.add_argument('-nu', '--n_units', type=int, default=100)
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
-parser.add_argument('-e', '--epochs', type=int, default=2000)
+parser.add_argument('-e', '--epochs', type=int, default=1000)
 parser.add_argument('--n_eigen_threshold', type=float, default=0.99)
 parser.add_argument('--train_samples', type=int, default=100)
 
 parser.add_argument('--test_samples', type=int, default=100)
-parser.add_argument('--print_interval', type=int, default=500)
-parser.add_argument('--test_interval', type=int, default=1000)
+parser.add_argument('--print_interval', type=int, default=200)
+parser.add_argument('--test_interval', type=int, default=100)
 
 args = parser.parse_args()
 logger = get_logger(args.dataset, 'results/%s/' % args.dataset, __file__)
@@ -47,7 +47,7 @@ print = logger.info
 
 ############################## load and normalize data ##############################
 dataset = dict(x3=x3_gap_toy, sin=sin_toy)[args.dataset]()
-original_x_train, original_y_train = dataset.train_samples()
+original_x_train, original_y_train = dataset.train_samples(n_data=50)
 mean_x, std_x = np.mean(original_x_train), np.std(original_x_train)
 mean_y, std_y = np.mean(original_y_train), np.std(original_y_train)
 train_x = (original_x_train - mean_x) / std_x
@@ -65,9 +65,9 @@ upper_ap = (dataset.x_max - mean_x) / std_x
 ############################## setup FBNN model ##############################
 with tf.variable_scope('prior'):
     if args.dataset == 'x3':
-        # prior_kernel = gfs.kernels.Linear(input_dim=1, name='lin') + gfs.kernels.RBF(input_dim=1, name='rbf')
+        prior_kernel = gfs.kernels.RBF(input_dim=1, name='rbf') #+ gfs.kernels.Linear(input_dim=1, name='lin')
         # prior_kernel = NeuralSpectralKernel(input_dim=1, name='NSK', Q=1, hidden_sizes=(32, 32))
-        prior_kernel = NeuralGibbsKernel(input_dim=1, name='NGK', hidden_sizes=(32, 32))
+        # prior_kernel = NeuralGibbsKernel(input_dim=1, name='NGK', hidden_sizes=(32, 32))
     elif args.dataset == 'sin':
         prior_kernel = gfs.kernels.Periodic(input_dim=1, name='per') + gfs.kernels.RBF(input_dim=1, name='rbf')
 
@@ -87,7 +87,7 @@ model.build_prior_gp(np.exp(2 * y_logstd))
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-gp_epochs = 10000
+gp_epochs = 2000
 for epoch in range(gp_epochs):
     feed_dict = {model.x_gp: train_x, model.y_gp: train_y,
                  model.learning_rate_ph: 0.003}

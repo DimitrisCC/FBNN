@@ -1,19 +1,18 @@
+from utils.utils import median_distance_local
+from data import uci_woval
+from utils.nets import get_posterior
+from core.fvi import EntropyEstimationFVI
+from utils.logging import get_logger
+import argparse
+import gpflowSlim as gfs
+import numpy as np
+import tensorflow as tf
 import os.path as osp
 import sys
 sys.path.append(osp.dirname(osp.dirname(osp.abspath(__file__))))
 
-import tensorflow as tf
-import numpy as np
 
-import gpflowSlim as gfs
 float_type = gfs.settings.tf_float
-import argparse
-
-from utils.logging import get_logger
-from core.fvi import EntropyEstimationFVI
-from utils.nets import get_posterior
-from data import uci_woval
-from utils.utils import median_distance_local
 
 
 parser = argparse.ArgumentParser('Regression')
@@ -34,8 +33,10 @@ parser.add_argument('--print_interval', type=int, default=100)
 parser.add_argument('--test_interval', type=int, default=100)
 
 args = parser.parse_args()
-logger = get_logger(args.dataset, 'results/regression/%s/'%args.dataset, __file__)
+logger = get_logger(args.dataset, 'results/regression/%s/' %
+                    args.dataset, __file__)
 print = logger.info
+
 
 def run(seed):
     tf.reset_default_graph()
@@ -54,10 +55,11 @@ def run(seed):
     with tf.variable_scope('prior'):
         ls = median_distance_local(train_x).astype('float32')
         ls[abs(ls) < 1e-6] = 1.
-        prior_kernel = gfs.kernels.RBF(input_dim=input_dim, name='rbf', lengthscales=ls, ARD=True)
+        prior_kernel = gfs.kernels.RBF(
+            input_dim=input_dim, name='rbf', lengthscales=ls, ARD=True)
 
     with tf.variable_scope('likelihood'):
-        obs_log1p = tf.get_variable('obs_log1p', shape=[], 
+        obs_log1p = tf.get_variable('obs_log1p', shape=[],
                                     initializer=tf.constant_initializer(np.log(np.exp(0.5) - 1.)))
         obs_var = tf.nn.softplus(obs_log1p)**2.
 
@@ -85,8 +87,10 @@ def run(seed):
 
     gp_epochs = 5000
     for epoch in range(gp_epochs):
-        feed_dict = {model.x_gp:train_x, model.y_gp:train_y, model.learning_rate_ph: 0.003}
-        _, loss, gp_var = sess.run([model.infer_gp, model.gp_loss, model.gp_var], feed_dict=feed_dict)
+        feed_dict = {model.x_gp: train_x, model.y_gp: train_y,
+                     model.learning_rate_ph: 0.003}
+        _, loss, gp_var = sess.run(
+            [model.infer_gp, model.gp_loss, model.gp_var], feed_dict=feed_dict)
         if epoch % args.print_interval == 0:
             print('>>> Seed {:5d} >>> Pretrain GP Epoch {:5d}/{:5d}: Loss={:.5f} | Var={:.5f}'.format(
                 seed, epoch, gp_epochs, loss, gp_var))
@@ -96,8 +100,10 @@ def run(seed):
         indices = np.random.permutation(N)
         train_x, train_y = train_x[indices], train_y[indices]
         for iter in range(epoch_iters):
-            x_batch = train_x[iter * args.batch_size: (iter + 1) * args.batch_size]
-            y_batch = train_y[iter * args.batch_size: (iter + 1) * args.batch_size]
+            x_batch = train_x[iter *
+                              args.batch_size: (iter + 1) * args.batch_size]
+            y_batch = train_y[iter *
+                              args.batch_size: (iter + 1) * args.batch_size]
 
             feed_dict = {model.x: x_batch, model.y: y_batch, model.learning_rate_ph: args.learning_rate,
                          model.n_particles: args.train_samples}
@@ -106,8 +112,10 @@ def run(seed):
             sess.run(train_op, feed_dict=feed_dict)
 
         if epoch % args.test_interval == 0 or epoch == args.epochs:
-            feed_dict = {model.x: test_x, model.y: test_y, model.n_particles: args.test_samples}
-            rmse, lld, ov = sess.run([model.eval_rmse, model.eval_lld, obs_var], feed_dict=feed_dict)
+            feed_dict = {model.x: test_x, model.y: test_y,
+                         model.n_particles: args.test_samples}
+            rmse, lld, ov = sess.run(
+                [model.eval_rmse, model.eval_lld, obs_var], feed_dict=feed_dict)
             rmse = rmse * std_y_train
             lld = lld - np.log(std_y_train)
 
@@ -115,6 +123,7 @@ def run(seed):
                 seed, epoch, args.epochs, rmse, lld, ov))
             if epoch == args.epochs:
                 return rmse, lld
+
 
 if __name__ == '__main__':
     n_run = 10
@@ -124,6 +133,8 @@ if __name__ == '__main__':
         rmse_results.append(rmse)
         lld_results.append(ll)
 
-    print("BNN test rmse = {}/{}".format(np.mean(rmse_results), np.std(rmse_results) / n_run ** 0.5))
-    print("BNN test log likelihood = {}/{}".format(np.mean(lld_results), np.std(lld_results) / n_run ** 0.5))
+    print("BNN test rmse = {}/{}".format(np.mean(rmse_results),
+                                         np.std(rmse_results) / n_run ** 0.5))
+    print("BNN test log likelihood = {}/{}".format(np.mean(lld_results),
+                                                   np.std(lld_results) / n_run ** 0.5))
     print('NOTE: Test result above output mean and std. errors')

@@ -39,14 +39,15 @@ class AbstractFVI(object):
         self.build_evaluation()
 
     def init_inputs(self):
-        self.x                = tf.placeholder(tf.float32, shape=[None, self.input_dim], name='x')
-        self.x_pred           = tf.placeholder(tf.float32, shape=[None, self.input_dim], name='x_pred')
-        self.y                = tf.placeholder(tf.float32, shape=[None], name='y')
-        self.n_particles      = tf.placeholder(tf.int32,   shape=[], name='n_particles')
-        self.learning_rate_ph = tf.placeholder(tf.float32, shape=[], name='learning_rate')
+        tf_type = tf.float32
+        self.x                = tf.placeholder(tf_type, shape=[None, self.input_dim], name='x')
+        self.x_pred           = tf.placeholder(tf_type, shape=[None, self.input_dim], name='x_pred')
+        self.y                = tf.placeholder(tf_type, shape=[None], name='y')
+        self.n_particles      = tf.placeholder(tf.int32, shape=[], name='n_particles')
+        self.learning_rate_ph = tf.placeholder(tf_type, shape=[], name='learning_rate')
 
-        self.coeff_ll         = tf.placeholder(tf.float32, shape=[], name='coeff_ll')
-        self.coeff_kl         = tf.placeholder(tf.float32, shape=[], name='coeff_kl')
+        self.coeff_ll         = tf.placeholder(tf_type, shape=[], name='coeff_ll')
+        self.coeff_kl         = tf.placeholder(tf_type, shape=[], name='coeff_kl')
 
     @property
     def batch_size(self):
@@ -136,8 +137,8 @@ class EntropyEstimationFVI(AbstractFVI):
 
         # compute analytic cross entropy
         kernel_matrix = self.prior_kernel.K(tf.cast(self.x_rand, tf.float64))
-        if not isinstance(kernel_matrix, AbstractNeuralKernel):
-            kernel_matrix += self.injected_noise ** 2 * tf.eye(tf.shape(self.x_rand)[0], dtype=tf.float64)
+        # if not isinstance(kernel_matrix, AbstractNeuralKernel):
+        kernel_matrix += self.injected_noise ** 2 * tf.eye(tf.shape(self.x_rand)[0], dtype=tf.float64)
         prior_dist = tf.contrib.distributions.MultivariateNormalFullCovariance(
             tf.zeros([tf.shape(self.x_rand)[0]], dtype=tf.float64), kernel_matrix)
         cross_entropy = -tf.reduce_mean(prior_dist.log_prob(tf.to_double(self.noisy_func_x_rand)))
