@@ -21,7 +21,7 @@ from utils.logging import get_logger
 from utils.neural_kernel import NeuralSpectralKernel, NeuralGibbsKernel
 from utils.utils import median_distance_local
 
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 # float_type = gfs.settings.tf_float
 
 
@@ -34,7 +34,7 @@ parser.add_argument('-nh', '--n_hidden', type=int, default=3)
 parser.add_argument('-nu', '--n_units', type=int, default=100)
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
 parser.add_argument('-e', '--epochs', type=int, default=3001)
-parser.add_argument('-gpe', '--gp_epochs', type=int, default=10000)
+parser.add_argument('-gpe', '--gp_epochs', type=int, default=1000)
 parser.add_argument('--n_eigen_threshold', type=float, default=0.99)
 parser.add_argument('--train_samples', type=int, default=100)
 
@@ -71,12 +71,12 @@ upper_ap = np.maximum(np.max(train_x), np.max(test_x))
 ############################## setup FBNN model ##############################
 with tf.variable_scope('prior'):
     # prior_kernel = gfs.kernels.RBF(input_dim=1, name='rbf') + gfs.kernels.Linear(input_dim=1, name='lin')
-    prior_kernel = NeuralSpectralKernel(input_dim=1, name='NSK', Q=1, hidden_sizes=(32, 32))
+    # prior_kernel = NeuralSpectralKernel(input_dim=1, name='NSK', Q=1, hidden_sizes=(32, 32))
     # prior_kernel = NeuralGibbsKernel(input_dim=1, name='NGK', hidden_sizes=(5, 5))
     # prior_kernel = gfs.kernels.Periodic(input_dim=1, name='per') + gfs.kernels.RBF(input_dim=1, name='rbf')
-    # ls = median_distance_local(train_x).astype('float32')
-    # ls[abs(ls) < 1e-6] = 1.
-    # prior_kernel = gfs.kernels.RBF(input_dim=1, name='rbf', lengthscales=ls, ARD=False)
+    ls = median_distance_local(train_x).astype('float32')
+    ls[abs(ls) < 1e-6] = 1.
+    prior_kernel = gfs.kernels.RBF(input_dim=1, name='rbf', lengthscales=ls, ARD=False)
 
 with tf.variable_scope('likelihood'):
     obs_log1p = tf.get_variable('obs_log1p', shape=[],
@@ -192,7 +192,17 @@ for epoch in range(args.epochs):
                                      model.n_particles: args.test_samples})
         y_pred = y_pred * std_y + mean_y
         mean_y_pred, std_y_pred = np.mean(y_pred, 0), np.std(y_pred, 0)
-
+        ####
+        print("fBNN RMSE:", np.sqrt(np.mean((mean_y_pred - dataset.y) ** 2)))
+        print("GP RMSE:", np.sqrt(np.mean((mu - dataset.y) ** 2)))
+        plt.clf()
+        plt.plot(test_points_vis, mean_y_pred)
+        plt.plot(test_points_vis, mu)
+        plt.plot(test_points_vis, dataset.y)
+        plt.ylim([np.min(all_y), np.max(all_y)])
+        plt.show()
+        ####
+        
         plt.clf()
         figure = plt.figure(figsize=(10, 7), facecolor='white')
         init_plotting()

@@ -1,16 +1,24 @@
+import argparse
+import gpflowSlim as gfs
+import numpy as np
+import tensorflow as tf
+from scipy.cluster.vq import kmeans2
+import os
+import os.path as osp
+import sys
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from tensorflow.python.util import deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
+
+sys.path.append(osp.dirname(osp.dirname(osp.abspath(__file__))))
+
 from utils.utils import median_distance_local
 from data import uci_woval
 from utils.nets import get_posterior
 from core.fvi import EntropyEstimationFVI
 from utils.logging import get_logger
-import argparse
-import gpflowSlim as gfs
-import numpy as np
-import tensorflow as tf
-import os.path as osp
-import sys
-sys.path.append(osp.dirname(osp.dirname(osp.abspath(__file__))))
-
+from utils.neural_kernel import NeuralSpectralKernel, NeuralGibbsKernel
 
 float_type = gfs.settings.tf_float
 
@@ -27,7 +35,6 @@ parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
 parser.add_argument('-e', '--epochs', type=int, default=2000)
 parser.add_argument('--n_eigen_threshold', type=float, default=0.99)
 parser.add_argument('--train_samples', type=int, default=100)
-
 parser.add_argument('--test_samples', type=int, default=100)
 parser.add_argument('--print_interval', type=int, default=100)
 parser.add_argument('--test_interval', type=int, default=100)
@@ -51,12 +58,19 @@ def run(seed):
     upper_ap = np.maximum(np.max(train_x), np.max(test_x))
     mean_x_train, std_x_train = np.mean(train_x, 0), np.std(train_x, 0)
 
+    inducing_points, _ = kmeans2(train_x, args.n_inducing, minit="points")
+
     ############################## setup FBNN model ##############################
     with tf.variable_scope('prior'):
-        ls = median_distance_local(train_x).astype('float32')
-        ls[abs(ls) < 1e-6] = 1.
-        prior_kernel = gfs.kernels.RBF(
-            input_dim=input_dim, name='rbf', lengthscales=ls, ARD=True)
+        # ls = median_distance_local(train_x).astype('float32')
+        # ls[abs(ls) < 1e-6] = 1.
+        # prior_kernel = gfs.kernels.RBF(
+        #     input_dim=input_dim, name='rbf', lengthscales=ls, ARD=True)
+
+        prior_kernel = gfs.kernels.RBF(input_dim=input_dim, name='rbf') + gfs.kernels.Linear(input_dim=input_dim, name='lin')
+        # prior_kernel = NeuralSpectralKernel(input_dim=input_dim, name='NSK', Q=3, hidden_sizes=(32, 32))
+        # prior_kernel = NeuralGibbsKernel(input_dim=input_dim, name='NGK', hidden_sizes=(32, 32))
+        # prior_kernel = gfs.kernels.Periodic(input_dim=input_dim, name='per') + gfs.kernels.RBF(input_dim=1, name='rbf')
 
     with tf.variable_scope('likelihood'):
         obs_log1p = tf.get_variable('obs_log1p', shape=[],
@@ -75,6 +89,7 @@ def run(seed):
     model = EntropyEstimationFVI(
         prior_kernel, get_posterior('bnn')(layer_sizes, logstd_init=-2.), rand_generator=rand_generator,
         obs_var=obs_var, input_dim=input_dim, n_rand=args.n_rand, injected_noise=args.injected_noise)
+
     model.build_prior_gp(init_var=0.1)
     update_op = tf.group(model.infer_latent, model.infer_likelihood)
     with tf.control_dependencies([update_op]):
