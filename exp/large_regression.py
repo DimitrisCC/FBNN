@@ -134,7 +134,7 @@ def run():
 
     ############################## train GP firstly ##############################
     gp_batch_size = 1000
-    epochs = 10000 * gp_batch_size // N
+    epochs = 1 * gp_batch_size // N
     flag = False
     for epoch in range(epochs):
         indices = np.random.permutation(N)
@@ -159,7 +159,7 @@ def run():
                                                                              model.y_gp: y_test})
     p_rmse = gp_rmse * std_y_train
     gp_logll = gp_logll - np.log(std_y_train)
-    print('>>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(kern.name, gp_rmse, gp_logll))
+    print('>>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(kern.name, gp_rmse.item(), gp_logll.item()))
 
     ############################## evaluation function ##############################
     def eval(test_input, test_output):
@@ -219,8 +219,8 @@ def run():
             epoch, epochs, best_valid_rmse, best_valid_likelihood))
         logger.info('Epoch %d/%d -- Till NOW: best test rmse = %.5f -- best test ll = %.5f' % (
             epoch, epochs, best_test_rmse, best_test_likelihood))
-        logger.info('>>> GP Prior with {} fit: test_rmse={:.5f} | test_lld={:.5f}'.format(
-                seed, kern.name, gp_rmse, gp_logll))
+        logger.info('>>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(kern.name, gp_rmse.item(), gp_logll.item()))
+
 
 if __name__ == "__main__":
     begin_time = time.time()
