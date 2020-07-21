@@ -104,7 +104,7 @@ def run():
         # wrapper = NKNWrapper(wrapper)
         # kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
         ###
-        kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.Q, hidden_sizes=(32, 32))
+        kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(32, 32))
         # kern = NeuralGibbsKernel(input_dim=D, name='NGK', hidden_sizes=(32, 32))
 
 
