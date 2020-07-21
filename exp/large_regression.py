@@ -135,7 +135,7 @@ def run():
 
     ############################## train GP firstly ##############################
     gp_batch_size = 1000
-    epochs = 1 * gp_batch_size // N
+    epochs = 10000 * gp_batch_size // N
     flag = False
     for epoch in range(epochs):
         indices = np.random.permutation(N)
