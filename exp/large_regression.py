@@ -154,7 +154,8 @@ def run():
                 break
     
     ############################## test the GP ################################
-    gp_rmse, gp_logll = sess.run([model.gp_rmse, model.gp_logll], feed_dict={model.x_pred_gp: x_test,
+    model.build_prior_gp_evaluation()
+    gp_rmse, gp_logll = sess.run([model.gp_rmse, model.gp_logll], feed_dict={model.x_gp: x_test,
                                                                              model.y_gp: y_test})
     p_rmse = gp_rmse * std_y_train
     gp_logll = gp_logll - np.log(std_y_train)
