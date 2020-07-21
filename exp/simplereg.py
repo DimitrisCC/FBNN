@@ -19,6 +19,7 @@ from utils.nets import get_posterior
 from core.fvi import EntropyEstimationFVI
 from utils.logging import get_logger
 from utils.neural_kernel import NeuralSpectralKernel, NeuralGibbsKernel
+from utils.spectral_kernel import SMKernel
 from utils.utils import median_distance_local
 
 matplotlib.use('Agg')
@@ -26,20 +27,20 @@ matplotlib.use('Agg')
 
 
 parser = argparse.ArgumentParser('SimpleReg')
-parser.add_argument('-d', '--dataset', type=str, default='sunspots')  # radiance # mcycle
-parser.add_argument('-in', '--injected_noise', type=float, default=0.0001)
+parser.add_argument('-d', '--dataset', type=str, default='radiance')  # sunspots # mcycle
+parser.add_argument('-in', '--injected_noise', type=float, default=0.001)
 parser.add_argument('-il', '--init_logstd', type=float, default=-5.)
 parser.add_argument('-na', '--n_rand', type=int, default=5)
-parser.add_argument('-nh', '--n_hidden', type=int, default=3)
-parser.add_argument('-nu', '--n_units', type=int, default=100)
+parser.add_argument('-nh', '--n_hidden', type=int, default=5)
+parser.add_argument('-nu', '--n_units', type=int, default=500)
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
-parser.add_argument('-e', '--epochs', type=int, default=1501)
-parser.add_argument('-gpe', '--gp_epochs', type=int, default=2000)
+parser.add_argument('-e', '--epochs', type=int, default=10001)
+parser.add_argument('-gpe', '--gp_epochs', type=int, default=10000)
 parser.add_argument('--n_eigen_threshold', type=float, default=0.99)
 parser.add_argument('--train_samples', type=int, default=100)
 
 parser.add_argument('--test_samples', type=int, default=100)
-parser.add_argument('--print_interval', type=int, default=200)
+parser.add_argument('--print_interval', type=int, default=100)
 parser.add_argument('--test_interval', type=int, default=500)
 
 args = parser.parse_args()
@@ -62,8 +63,6 @@ test_y = (original_y_test - mean_y) / std_y
 all_x = (dataset.X - mean_x) / std_x
 all_y = (dataset.y - mean_y) / std_y
 
-# y_logstd = np.log(dataset.y_std / std_y)
-y_logstd = np.log(3. / std_y)
 
 lower_ap = np.minimum(np.min(train_x), np.min(test_x))
 upper_ap = np.maximum(np.max(train_x), np.max(test_x))
@@ -72,12 +71,14 @@ upper_ap = np.maximum(np.max(train_x), np.max(test_x))
 ############################## setup FBNN model ##############################
 with tf.variable_scope('prior'):
     # prior_kernel = gfs.kernels.RBF(input_dim=1, name='rbf') + gfs.kernels.Linear(input_dim=1, name='lin')
-    # prior_kernel = NeuralSpectralKernel(input_dim=1, name='NSK', Q=1, hidden_sizes=(32, 32))
-    # prior_kernel = NeuralGibbsKernel(input_dim=1, name='NGK', hidden_sizes=(32, 32))
-    prior_kernel = gfs.kernels.Periodic(input_dim=1, name='per') + gfs.kernels.RBF(input_dim=1, name='rbf')
+    prior_kernel = NeuralSpectralKernel(input_dim=1, name='NSK', Q=10, hidden_sizes=(3, 3))
+    # prior_kernel = NeuralGibbsKernel(input_dim=1, name='NGK', hidden_sizes=(3, 3))
+    # prior_kernel = SMKernel(input_dim=1, name='SMK', Q=10)
+    # prior_kernel = gfs.kernels.Periodic(input_dim=1, name='per') + gfs.kernels.RBF(input_dim=1, name='rbf')
     # ls = median_distance_local(train_x).astype('float32')
     # ls[abs(ls) < 1e-6] = 1.
-    # prior_kernel = gfs.kernels.RBF(input_dim=1, name='rbf', lengthscales=ls, ARD=False)
+    # prior_kernel = gfs.kernels.RBF(input_dim=1, name='rbf', lengthscales=ls, ARD=False)\
+    #                     + gfs.kernels.Periodic(input_dim=1, name='per')
 
 with tf.variable_scope('likelihood'):
     obs_log1p = tf.get_variable('obs_log1p', shape=[],
@@ -111,66 +112,80 @@ sess.run(tf.global_variables_initializer())
 gp_epochs = args.gp_epochs
 for epoch in range(gp_epochs):
     feed_dict = {model.x_gp: train_x, model.y_gp: train_y,
-                 model.learning_rate_ph: 0.003}
-    _, loss = sess.run([model.infer_gp_kern, model.gp_loss], #, model.gp_var],
+                 model.learning_rate_ph: 0.01}
+    _, loss, gp_var = sess.run([model.infer_gp_kern, model.gp_loss, model.gp_var],
                        feed_dict=feed_dict)
-    if epoch % args.print_interval == 0:
+    # if epoch % (int(args.print_interval/2)) == 0:
+    if epoch % 5 == 0:
         print(
             '>>> Pretrain GP Epoch {:5d}/{:5d}: Loss={:.5f}'.format(epoch, gp_epochs, loss))
 
-# # Plot the GP
-# test_points = all_x  # or test_x
-# test_points_vis = dataset.X.squeeze()  # or original_x_test
+# Test the GP
+gp_rmse, gp_logll = sess.run([model.gp_rmse, model.gp_logll], 
+                             feed_dict={model.x_gp: train_x, model.y_gp: train_y,
+                                        model.x_pred_gp: all_x})
+gp_rmse = gp_rmse * std_y
+gp_logll = gp_logll - np.log(std_y)
+print('>>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(
+            prior_kernel.name, gp_rmse, gp_logll))
+
+# Plot the GP
+test_points = all_x  # or test_x
+test_points_vis = dataset.X.squeeze()  # or original_x_test
 # gp_pred_mu, gp_pred_cov = model.gp.predict_y(test_points) ## to change for test points
-# mu, cov = sess.run([gp_pred_mu, gp_pred_cov], feed_dict={model.x_gp: train_x, model.y_gp: train_y})
-# mu, cov = mu.squeeze(), cov.squeeze()
-# mu, cov = mu * std_y + mean_y, cov * (std_y ** 2)
+mu, cov = sess.run([model.gp_y_pred, model.gp_y_pred_var], 
+                                        feed_dict={model.x_gp: train_x, model.y_gp: train_y,
+                                                   model.x_pred_gp: all_x})
+mu, cov = mu.squeeze(), cov.squeeze()
+mu, cov = mu * std_y + mean_y, cov * (std_y ** 2)
 
-# plt.clf()
-# figure = plt.figure(figsize=(16, 11), facecolor='white')
-# init_plotting()
+plt.clf()
+figure = plt.figure(figsize=(10, 7), facecolor='white')
+init_plotting()
 
-# plt.plot(test_points_vis, dataset.y, 'black', label="True function")
-# plt.plot(test_points_vis, mu, 'orange', label='Mean function')  ## to change for test points
-# plt.fill_between(test_points_vis, mu - cov ** 0.5, mu + cov ** 0.5, alpha=0.6, color='lightblue') ## to change for test points
-# plt.scatter(original_x_train, original_y_train, c='green', zorder=10, label='Observations', s=15)
-# plt.scatter(original_x_test, original_y_test, c='red', zorder=10, label='Test points', s=15)
-# plt.grid(True)
-# plt.tick_params(axis='both', bottom='off', top='off', left='off', right='off',
-#                 labelbottom='off', labeltop='off', labelleft='off', labelright='off')
-# plt.tight_layout()
-# plt.ylim([np.min(dataset.y), np.max(dataset.y)])
-# plt.tight_layout()
-# plt.legend()
+plt.plot(test_points_vis, dataset.y, 'black', label="True function")
+plt.plot(test_points_vis, mu, 'orange', label='Mean function')  ## to change for test points
+plt.fill_between(test_points_vis, mu - cov ** 0.5, mu + cov ** 0.5, alpha=0.6, color='lightblue') ## to change for test points
+plt.scatter(original_x_train, original_y_train, c='green', zorder=10, label='Observations', s=10)
+plt.scatter(original_x_test, original_y_test, c='red', zorder=10, label='Test points', s=10)
+plt.grid(True)
+plt.tick_params(axis='both', bottom='off', top='off', left='off', right='off',
+                labelbottom='off', labeltop='off', labelleft='off', labelright='off')
+plt.tight_layout()
+plt.ylim([np.min(dataset.y), np.max(dataset.y)])
+plt.tight_layout()
+plt.legend()
 
-# plt.savefig('results/{}/GP_PRIOR_{}.png'.format(args.dataset, prior_kernel.name))
+plt.savefig('results/{}/GP_PRIOR_{}.png'.format(args.dataset, prior_kernel.name))
 
-# # Plot GP prior parameters
-# plt.clf()
-# figure = plt.figure(figsize=(12, 7), facecolor='white')
-# init_plotting()
-# if model.gp.kern.name == 'NSK':
-#     for q in range(model.gp.kern.Q):  # TODO for Q > 1
-#         lenf, freqf, varf = model.gp.kern.lengthscale(test_points, q), \
-#                         model.gp.kern.frequency(test_points, q), \
-#                         model.gp.kern.variance(test_points, q)
-#         len, freq, var = sess.run([lenf, freqf, varf])
-#         plt.plot(test_points_vis, len, 'blue', label="Lengthscale")
-#         plt.plot(test_points_vis, freq, 'orange', label="Frequency")
-#         plt.plot(test_points_vis, var, 'green', label="Variance")
-# elif model.gp.kern.name == 'NGK':
-#     lenf = model.gp.kern.lengthscale(test_points)
-#     varf = model.gp.kern.variance
-#     len, var = sess.run([lenf, varf])
-#     plt.plot(test_points_vis, len, 'blue', label="Lengthscale")
-#     plt.plot(test_points_vis, var*np.ones_like(test_points_vis), 'green', label="Variance")
-# plt.tight_layout()
-# plt.legend()
-# plt.savefig('results/{}/GP_PRIOR_{}_PARAMS.png'.format(args.dataset, prior_kernel.name))
+# Plot GP prior parameters
+plt.clf()
+figure = plt.figure(figsize=(10, 7), facecolor='white')
+init_plotting()
+if model.gp.kern.name == 'NSK':
+    for q in range(model.gp.kern.Q):  # TODO for Q > 1
+        lenf, freqf, varf = model.gp.kern.lengthscale(test_points, q), \
+                        model.gp.kern.frequency(test_points, q), \
+                        model.gp.kern.variance(test_points, q)
+        lenf, freq, var = sess.run([lenf, freqf, varf])
+        plt.plot(test_points_vis, lenf, 'blue', label="Lengthscale")
+        plt.plot(test_points_vis, freq, 'orange', label="Frequency")
+        plt.plot(test_points_vis, var, 'green', label="Variance")
+elif model.gp.kern.name == 'NGK':
+    lenf = model.gp.kern.lengthscale(test_points)
+    varf = model.gp.kern.variance
+    lenf, var = sess.run([lenf, varf])
+    plt.plot(test_points_vis, lenf, 'blue', label="Lengthscale")
+    plt.plot(test_points_vis, var*np.ones_like(test_points_vis), 'green', label="Variance")
+plt.tight_layout()
+plt.legend()
+plt.savefig('results/{}/GP_PRIOR_{}_PARAMS.png'.format(args.dataset, prior_kernel.name))
 
 # exit()
 
 # Train the fBNN
+test_points = all_x  # or test_x
+test_points_vis = dataset.X.squeeze()  # or original_x_test
 for epoch in range(args.epochs):
     indices = np.random.permutation(train_x.shape[0])
     train_x, train_y = train_x[indices], train_y[indices]
@@ -186,30 +201,37 @@ for epoch in range(args.epochs):
             epoch, args.epochs, elbo_sur, logll, kl_sur))
 
     if epoch % args.test_interval == 0:
-        y_pred = sess.run(model.func_x_pred,
-                          feed_dict={model.x_pred: np.reshape(test_x, [-1, 1]),
+        # y_pred = sess.run(model.func_x_pred,
+        #                   feed_dict={model.x_pred: np.reshape(test_points, [-1, 1]),
+        #                              model.n_particles: args.test_samples})
+        y_pred, rmse = sess.run([model.func_x, model.eval_rmse],
+                          feed_dict={model.x: test_points, model.y: all_y,
                                      model.n_particles: args.test_samples})
         y_pred = y_pred * std_y + mean_y
         mean_y_pred, std_y_pred = np.mean(y_pred, 0), np.std(y_pred, 0)
+        rmse = rmse * std_y
+        print('fBNN RMSE:{}\n'.format(rmse))
+        print('>>> GP Prior {}: RMSE={:.5f} | LLD={:.5f}'.format(
+            prior_kernel.name, gp_rmse, gp_logll))
 
         # Plot FBNN fit
         plt.clf()
-        figure = plt.figure(figsize=(8, 5.5), facecolor='white')
+        figure = plt.figure(figsize=(10, 7), facecolor='white')
         init_plotting()
 
         plt.plot(dataset.X, dataset.y,
-                 'g', label="True function")
-        plt.plot(original_x_test.squeeze(), mean_y_pred,
-                 'steelblue', label='Mean function')
+                 'black', label="True function")
+        plt.plot(test_points_vis, mean_y_pred,
+                 'orange', label='Mean function')
         for i in range(5):
-            plt.fill_between(original_x_test.squeeze(), mean_y_pred - i * 0.75 * std_y_pred,
+            plt.fill_between(test_points_vis, mean_y_pred - i * 0.75 * std_y_pred,
                              mean_y_pred - (i + 1) * 0.75 * std_y_pred, linewidth=0.0,
                              alpha=1.0 - i * 0.15, color='lightblue')
-            plt.fill_between(original_x_test.squeeze(), mean_y_pred + i * 0.75 * std_y_pred,
+            plt.fill_between(test_points_vis, mean_y_pred + i * 0.75 * std_y_pred,
                              mean_y_pred + (i + 1) * 0.75 * std_y_pred, linewidth=0.0,
                              alpha=1.0 - i * 0.15, color='lightblue')
-        plt.scatter(original_x_train, original_y_train,
-                    c='tomato', zorder=10, label='Observations')
+        plt.scatter(original_x_train, original_y_train, c='green', zorder=10, label='Observations', s=10)
+        plt.scatter(original_x_test, original_y_test, c='red', zorder=10, label='Test points', s=10)
         plt.grid(True)
         plt.tick_params(axis='both', bottom='off', top='off', left='off', right='off',
                         labelbottom='off', labeltop='off', labelleft='off', labelright='off')
@@ -218,4 +240,4 @@ for epoch in range(args.epochs):
         plt.tight_layout()
         plt.legend()
 
-        plt.savefig('results/{}/plot_epoch{}.pdf'.format(args.dataset, epoch))
+        plt.savefig('results/{}/{}_plot_epoch{}.png'.format(args.dataset, prior_kernel.name, epoch))

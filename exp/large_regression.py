@@ -20,9 +20,10 @@ from utils.kernels import KernelWrapper
 from utils.logging import get_logger
 from utils.nets import get_posterior
 from core.fvi import EntropyEstimationFVI
+from utils.neural_kernel import NeuralSpectralKernel, NeuralGibbsKernel
 
 
-parser = argparse.ArgumentParser('Regression')
+parser = argparse.ArgumentParser('LargeRegression')
 parser.add_argument('-d', '--dataset', type=str, default='protein')
 #tuning
 parser.add_argument('-na', '--n_rand', type=int, default=5)
@@ -102,7 +103,9 @@ def run():
         wrapper = NKNWrapper(wrapper)
         kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
         ###
-        
+        # prior_kernel = NeuralSpectralKernel(input_dim=input_dim, name='NSK', Q=3, hidden_sizes=(32, 32))
+        # prior_kernel = NeuralGibbsKernel(input_dim=input_dim, name='NGK', hidden_sizes=(32, 32))
+
 
     likelihood = Likelihood(6., 6.)
 
@@ -149,6 +152,14 @@ def run():
             if var < 2e-5:
                 flag = True
                 break
+    
+    ############################## test the GP ################################
+    gp_rmse, gp_logll = sess.run([model.gp_rmse, model.gp_logll], feed_dict={model.x_pred_gp: x_test,
+                                                                             model.y_gp: y_test})
+    p_rmse = gp_rmse * std_y_train
+    gp_logll = gp_logll - np.log(std_y_train)
+    print('>>> Seed {:5d} >>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(
+                seed, prior_kernel.name, gp_rmse, gp_logll))
 
     ############################## evaluation function ##############################
     def eval(test_input, test_output):
@@ -208,6 +219,8 @@ def run():
             epoch, epochs, best_valid_rmse, best_valid_likelihood))
         logger.info('Epoch %d/%d -- Till NOW: best test rmse = %.5f -- best test ll = %.5f' % (
             epoch, epochs, best_test_rmse, best_test_likelihood))
+        logger.info('>>> GP Prior with {} fit: test_rmse={:.5f} | test_lld={:.5f}'.format(
+                seed, prior_kernel.name, gp_rmse, gp_logll))
 
 if __name__ == "__main__":
     begin_time = time.time()

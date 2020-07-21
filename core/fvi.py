@@ -169,6 +169,11 @@ class EntropyEstimationFVI(AbstractFVI):
         self.gp_var = self.gp.likelihood.variance
         self.gp_logstd = tf.log(self.gp.likelihood.variance) * 0.5
         self.func_x_pred_gp = tf.squeeze(self.gp.predict_f_samples(self.x_pred_gp, self.n_particles), -1)
+        # Evaluation
+        self.gp_y_pred, self.gp_y_pred_var = self.gp.predict_y(self.x_pred_gp)
+        self.gp_rmse = tf.sqrt(tf.reduce_mean((tf.reduce_mean(self.gp_y_pred, 0) - self.y_gp) ** 2))
+        self.gp_logll = tf.reduce_mean(self.gp.predict_density(self.x_pred_gp, self.gp_y_pred))
+        ####
 
         self.optimizer_gp = tf.train.AdamOptimizer(self.learning_rate_ph)
         self.infer_gp = self.optimizer_gp.minimize(self.gp_loss, var_list=self.params_prior)\
@@ -177,6 +182,7 @@ class EntropyEstimationFVI(AbstractFVI):
         # only optimize kernel params without optimizing GP observation variance
         self.infer_gp_kern = self.optimizer_gp.minimize(
             self.gp_loss, var_list=[v for v in self.params_prior if 'likelihood' not in v.name])
+
 
 
 class KLEstimatorFVI(AbstractFVI):

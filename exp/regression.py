@@ -1,11 +1,10 @@
+import os
+import os.path as osp
+import sys
 import argparse
 import gpflowSlim as gfs
 import numpy as np
 import tensorflow as tf
-from scipy.cluster.vq import kmeans2
-import os
-import os.path as osp
-import sys
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.util import deprecation
@@ -33,8 +32,10 @@ parser.add_argument('-nu', '--n_units', type=int, default=50)
 parser.add_argument('-bs', '--batch_size', type=int, default=20)
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
 parser.add_argument('-e', '--epochs', type=int, default=2000)
+parser.add_argument('-gpe', '--gp_epochs', type=int, default=5000)
 parser.add_argument('--n_eigen_threshold', type=float, default=0.99)
 parser.add_argument('--train_samples', type=int, default=100)
+
 parser.add_argument('--test_samples', type=int, default=100)
 parser.add_argument('--print_interval', type=int, default=100)
 parser.add_argument('--test_interval', type=int, default=100)
@@ -58,19 +59,13 @@ def run(seed):
     upper_ap = np.maximum(np.max(train_x), np.max(test_x))
     mean_x_train, std_x_train = np.mean(train_x, 0), np.std(train_x, 0)
 
-    inducing_points, _ = kmeans2(train_x, args.n_inducing, minit="points")
-
     ############################## setup FBNN model ##############################
     with tf.variable_scope('prior'):
-        # ls = median_distance_local(train_x).astype('float32')
-        # ls[abs(ls) < 1e-6] = 1.
-        # prior_kernel = gfs.kernels.RBF(
-        #     input_dim=input_dim, name='rbf', lengthscales=ls, ARD=True)
-
-        prior_kernel = gfs.kernels.RBF(input_dim=input_dim, name='rbf') + gfs.kernels.Linear(input_dim=input_dim, name='lin')
-        # prior_kernel = NeuralSpectralKernel(input_dim=input_dim, name='NSK', Q=3, hidden_sizes=(32, 32))
-        # prior_kernel = NeuralGibbsKernel(input_dim=input_dim, name='NGK', hidden_sizes=(32, 32))
-        # prior_kernel = gfs.kernels.Periodic(input_dim=input_dim, name='per') + gfs.kernels.RBF(input_dim=1, name='rbf')
+        # prior_kernel = NeuralSpectralKernel(input_dim=input_dim, name='NSK', Q=5, hidden_sizes=(64, 64))
+        # prior_kernel = NeuralGibbsKernel(input_dim=input_dim, name='NGK', hidden_sizes=(5, 5))
+        ls = median_distance_local(train_x).astype('float32')
+        ls[abs(ls) < 1e-6] = 1.
+        prior_kernel = gfs.kernels.RBF(input_dim=input_dim, name='rbf', lengthscales=ls, ARD=True)
 
     with tf.variable_scope('likelihood'):
         obs_log1p = tf.get_variable('obs_log1p', shape=[],
@@ -89,7 +84,6 @@ def run(seed):
     model = EntropyEstimationFVI(
         prior_kernel, get_posterior('bnn')(layer_sizes, logstd_init=-2.), rand_generator=rand_generator,
         obs_var=obs_var, input_dim=input_dim, n_rand=args.n_rand, injected_noise=args.injected_noise)
-
     model.build_prior_gp(init_var=0.1)
     update_op = tf.group(model.infer_latent, model.infer_likelihood)
     with tf.control_dependencies([update_op]):
@@ -100,7 +94,7 @@ def run(seed):
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
 
-    gp_epochs = 5000
+    gp_epochs = args.gp_epochs
     for epoch in range(gp_epochs):
         feed_dict = {model.x_gp: train_x, model.y_gp: train_y,
                      model.learning_rate_ph: 0.003}
@@ -109,6 +103,14 @@ def run(seed):
         if epoch % args.print_interval == 0:
             print('>>> Seed {:5d} >>> Pretrain GP Epoch {:5d}/{:5d}: Loss={:.5f} | Var={:.5f}'.format(
                 seed, epoch, gp_epochs, loss, gp_var))
+    
+    # test the GP
+    gp_rmse, gp_logll = sess.run([model.gp_rmse, model.gp_logll], feed_dict={model.x_gp: train_x, model.y_gp: train_y,
+                                                                             model.x_pred_gp: test_x})
+    p_rmse = gp_rmse * std_y_train
+    gp_logll = gp_logll - np.log(std_y_train)
+    print('>>> Seed {:5d} >>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(
+                seed, prior_kernel.name, gp_rmse, gp_logll))
 
     epoch_iters = max(N // args.batch_size, 1)
     for epoch in range(1, args.epochs+1):
@@ -137,19 +139,27 @@ def run(seed):
             print('>>> Seed {:5d} >>> Epoch {:5d}/{:5d} | rmse={:.5f} | lld={:.5f} | obs_var={:.5f}'.format(
                 seed, epoch, args.epochs, rmse, lld, ov))
             if epoch == args.epochs:
-                return rmse, lld
+                return rmse, lld, gp_rmse, gp_logll
 
 
 if __name__ == '__main__':
     n_run = 10
     rmse_results, lld_results = [], []
+    gp_rmse_results, gp_lld_results = [], []
     for seed in range(1, n_run+1):
-        rmse, ll = run(seed)
+        rmse, ll, gp_rmse, gp_ll = run(seed)
         rmse_results.append(rmse)
         lld_results.append(ll)
+        gp_rmse_results.append(gp_rmse)
+        gp_lld_results.append(gp_ll)
 
     print("BNN test rmse = {}/{}".format(np.mean(rmse_results),
                                          np.std(rmse_results) / n_run ** 0.5))
     print("BNN test log likelihood = {}/{}".format(np.mean(lld_results),
                                                    np.std(lld_results) / n_run ** 0.5))
+    print("GP prior test rmse = {}/{}".format(np.mean(gp_rmse_results),
+                                         np.std(gp_rmse_results) / n_run ** 0.5))
+    print("GP prior test log likelihood = {}/{}".format(np.mean(gp_lld_results),
+                                                   np.std(gp_lld_results) / n_run ** 0.5))
     print('NOTE: Test result above output mean and std. errors')
+
