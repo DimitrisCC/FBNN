@@ -30,6 +30,7 @@ parser.add_argument('-na', '--n_rand', type=int, default=5)
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
 parser.add_argument('-aiter', '--anneal_lr_iters', type=int, default=100000000)
 parser.add_argument('-arate', '--anneal_lr_ratio', type=int, default=0.1)
+parser.add_argument('-Q', '--components', type=int, default=3)
 
 parser.add_argument('--seed', type=int, default=123)
 args = parser.parse_args()
@@ -99,11 +100,11 @@ def run():
     ############################## setup FBNN model ##############################
     with tf.variable_scope('prior'):
         ### NKN
-        kernel, wrapper = NKNInfo(input_dim=D)
-        wrapper = NKNWrapper(wrapper)
-        kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
+        # kernel, wrapper = NKNInfo(input_dim=D)
+        # wrapper = NKNWrapper(wrapper)
+        # kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
         ###
-        # kern = NeuralSpectralKernel(input_dim=input_dim, name='NSK', Q=3, hidden_sizes=(32, 32))
+        kern = NeuralSpectralKernel(input_dim=input_dim, name='NSK', Q=args.Q, hidden_sizes=(32, 32))
         # kern = NeuralGibbsKernel(input_dim=input_dim, name='NGK', hidden_sizes=(32, 32))
 
 
