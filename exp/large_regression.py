@@ -11,6 +11,7 @@ import time
 import numpy as np
 import argparse
 from scipy import stats
+import gpflowSlim as gfs
 from gpflowSlim.neural_kernel_network import NKNWrapper, NeuralKernelNetwork
 import tensorflow as tf
 import shutil
@@ -104,9 +105,9 @@ def run():
         # wrapper = NKNWrapper(wrapper)
         # kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
         ###
-        kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(32, 32))
+        # kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(32, 32))
         # kern = NeuralGibbsKernel(input_dim=D, name='NGK', hidden_sizes=(32, 32))
-
+        kern = gfs.kernels.RBF(input_dim=D, name='rbf', ARD=True)
 
     likelihood = Likelihood(6., 6.)
 
