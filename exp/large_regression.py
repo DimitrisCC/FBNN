@@ -31,6 +31,8 @@ parser.add_argument('-na', '--n_rand', type=int, default=5)
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
 parser.add_argument('-aiter', '--anneal_lr_iters', type=int, default=100000000)
 parser.add_argument('-arate', '--anneal_lr_ratio', type=int, default=0.1)
+parser.add_argument('-kernel', '--kernel', default='NSK')
+parser.add_argument('-kh', '--kernel_hidden', type=int, default=32)
 parser.add_argument('-Q', '--components', type=int, default=3)
 
 parser.add_argument('--seed', type=int, default=123)
@@ -100,14 +102,16 @@ def run():
 
     ############################## setup FBNN model ##############################
     with tf.variable_scope('prior'):
-        ### NKN
-        # kernel, wrapper = NKNInfo(input_dim=D)
-        # wrapper = NKNWrapper(wrapper)
-        # kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
-        ###
-        kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(32, 32))
-        # kern = NeuralGibbsKernel(input_dim=D, name='NGK', hidden_sizes=(32, 32))
-        # kern = gfs.kernels.RBF(input_dim=D, name='rbf', ARD=True)
+        if args.kernel.upper() == 'NKN':
+            kernel, wrapper = NKNInfo(input_dim=D)
+            wrapper = NKNWrapper(wrapper)
+            kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
+        elif args.kernel.upper() == 'NSK' or ('NEURALSPECTRAL' in args.kernel.upper()):
+            kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(args.kernel_hidden, args.kernel_hidden))
+        elif args.kernel.upper() == 'GIBBS' or args.kernel.upper() == 'NGK':
+            kern = NeuralGibbsKernel(input_dim=D, name='NGK', hidden_sizes=(args.kernel_hidden, args.kernel_hidden))
+        elif args.kernel.upper() == 'RBF':
+            kern = gfs.kernels.RBF(input_dim=D, name='rbf', ARD=True)
 
     likelihood = Likelihood(6., 6.)
 
