@@ -105,9 +105,9 @@ def run():
         # wrapper = NKNWrapper(wrapper)
         # kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
         ###
-        # kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(32, 32))
+        kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(32, 32))
         # kern = NeuralGibbsKernel(input_dim=D, name='NGK', hidden_sizes=(32, 32))
-        kern = gfs.kernels.RBF(input_dim=D, name='rbf', ARD=True)
+        # kern = gfs.kernels.RBF(input_dim=D, name='rbf', ARD=True)
 
     likelihood = Likelihood(6., 6.)
 
@@ -154,26 +154,23 @@ def run():
             if var < 2e-5:
                 flag = True
                 break
-    
-    ############################## test the GP ################################
-    model.build_prior_gp_evaluation()
-    gp_rmse, gp_logll = sess.run([model.gp_rmse, model.gp_logll], feed_dict={model.x_gp: x_test,
-                                                                             model.y_gp: y_test})
-    p_rmse = gp_rmse * std_y_train
-    gp_logll = gp_logll - np.log(std_y_train)
-    print('>>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(kern.name, gp_rmse.item(), gp_logll.item()))
 
-    ############################## evaluation function ##############################
-    def eval(test_input, test_output):
+     ############################## evaluation function ##############################
+    def eval(test_input, test_output, for_gp=False):
         test_output = test_output.squeeze()
         rmse, lld, ns = [], [], []
         for id in range(test_input.shape[0] // 1000 + 1):
             x_batch = test_input[id * 1000 : (id+1) * 1000]
             y_batch = test_output[id * 1000 : (id+1) * 1000]
-            r, l = sess.run(
-                [model.eval_rmse, model.eval_lld],
-                feed_dict={model.x: x_batch, model.y: y_batch, model.n_particles: 100}
-            )
+            if for_gp:
+                r, l = sess.run([
+                    model.gp_rmse, model.gp_logll],
+                    feed_dict={model.x_gp: x_batch, model.y_gp: y_batch})
+            else:
+                r, l = sess.run(
+                    [model.eval_rmse, model.eval_lld],
+                    feed_dict={model.x: x_batch, model.y: y_batch, model.n_particles: 100}
+                )
             rmse.append(r)
             lld.append(l)
             ns.append(x_batch.shape[0])
@@ -181,6 +178,11 @@ def run():
         rmse = np.sqrt(np.sum([r**2. * n for r, n in zip(rmse, ns)]) / np.sum(ns))
         log_likelihood = np.sum([l * n for l, n in zip(lld, ns)]) / np.sum(ns)
         return rmse * std_y_train, log_likelihood - np.log(std_y_train)
+    
+    ############################## test the GP ################################
+    model.build_prior_gp_evaluation()
+    gp_rmse, gp_logll = eval(x_test, y_test, for_gp=True)
+    print('>>> GP Prior with {} fit: rmse={:.5f} | lld={:.5f}'.format(kern.name, gp_rmse.item(), gp_logll.item()))
 
     ############################## train FBNN ##############################
     batch_size = 500
