@@ -127,7 +127,7 @@ class NeuralSpectralKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
                 ll = tf.matmul(lens, lens2, transpose_b=True)  # l*l'^T
                 # l^2*1^T + 1*(l'^2)^T:
                 ll2 = tf.square(lens) + tf.transpose(tf.square(lens2))
-                D = square_dist(X_data, X2_data)
+                D = square_dist(X, X2)
                 E = tf.sqrt(2 * ll / ll2) * tf.exp(-D/ll2)
             else:
                 # compute length-scale term
@@ -190,7 +190,7 @@ class NeuralGibbsKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
             ll = tf.matmul(lens, lens2, transpose_b=True)  # l*l'^T
             # l^2*1^T + 1*(l'^2)^T:
             ll2 = tf.square(lens) + tf.transpose(tf.square(lens2))
-            D = square_dist(X_data, X2_data)
+            D = square_dist(X, X2)
             kern = self.variance * tf.sqrt(2 * ll / ll2) * tf.exp(-D/ll2)
         else:
             # compute length-scale term
