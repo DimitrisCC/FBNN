@@ -40,12 +40,13 @@ def robust_kernel(kern, shape_X):
 
 
 class AbstractNeuralKernel(gfsk.Kernel):
-    def __init__(self, input_dim, active_dims=None, Q=1, hidden_sizes=None, name=''):
+    def __init__(self, input_dim, active_dims=None, Q=1, ARD=True, hidden_sizes=None, name=''):
         super().__init__(input_dim, active_dims=active_dims, name=name)
         self.Q = Q
         if hidden_sizes is None:
             hidden_sizes = (32, 32)
         self.num_hidden = len(hidden_sizes)
+        self.ARD = ARD
 
     def _create_nn_params(self, prefix, hidden_sizes, final_size):
         for q in range(self.Q):
