@@ -41,6 +41,7 @@ parser.add_argument('-npr', '--n_particles', type=int, default=100)
 parser.add_argument('-bm', '--belief_matching', type=bool, default=False)
 parser.add_argument('-Z', '--inducing_points', type=int, default=0)
 parser.add_argument('-nl', '--n_layers', type=int, default=1)
+parser.add_argument('-ard', '--ARD', type=bool, default=True)
 
 parser.add_argument('--seed', type=int, default=123)
 args = parser.parse_args()
@@ -147,11 +148,11 @@ def run():
             wrapper = NKNWrapper(wrapper)
             kern = NeuralKernelNetwork(D, KernelWrapper(kernel), wrapper)
         elif args.kernel.upper() == 'NSK' or ('NEURALSPECTRAL' in args.kernel.upper()):
-            kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, hidden_sizes=(args.kernel_hidden, args.kernel_hidden))
+            kern = NeuralSpectralKernel(input_dim=D, name='NSK', Q=args.components, ARD=args.ARD, hidden_sizes=(args.kernel_hidden, args.kernel_hidden))
         elif args.kernel.upper() == 'GIBBS' or args.kernel.upper() == 'NGK':
-            kern = NeuralGibbsKernel(input_dim=D, name='NGK', hidden_sizes=(args.kernel_hidden, args.kernel_hidden))
+            kern = NeuralGibbsKernel(input_dim=D, name='NGK', ARD=args.ARD, hidden_sizes=(args.kernel_hidden, args.kernel_hidden))
         elif args.kernel.upper() == 'RBF':
-            kern = gfs.kernels.RBF(input_dim=D, name='rbf', ARD=True)
+            kern = gfs.kernels.RBF(input_dim=D, name='rbf', ARD=args.ARD)
 
     likelihood = MulticlassLikelihood(num_classes=num_classes, num_points=N, use_belief_matching=args.belief_matching)
 
