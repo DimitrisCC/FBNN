@@ -31,6 +31,7 @@ DATASETS = dict(
     iris='iris.data',
     cardio3='cardio3.data',
     cardio10='cardio10.data',
+    diabetes='diabetes.data',
     mnist='mnist.data'
 )
 
