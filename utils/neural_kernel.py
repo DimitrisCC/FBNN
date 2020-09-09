@@ -23,8 +23,9 @@ def _create_params(input_dim, output_dim, names):
 
 
 def robust_kernel(kern, shape_X):
-    tf.Print(kern, [kern], 'KERNEL: ')
-    eigvals = tf.self_adjoint_eigvals(kern)
+    with tf.device("/cpu:0"):
+        # eigvals = tf.self_adjoint_eigvals(kern)
+        eigvals, _ = tf.linalg.eigh(kern)
     min_eig = tf.reduce_min(eigvals)
     jitter = settings.numerics.jitter_level
 
