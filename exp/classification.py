@@ -165,7 +165,7 @@ def run():
         likelihood=likelihood, classification=True, num_classes=num_classes)
 
     inducing_points = x_train if args.inducing_points == 0 \
-                else x_train[np.random.choice(x.shape[0], replace=False, size=args.inducing_points), :]
+                else x_train[np.random.choice(x_train.shape[0], replace=False, size=args.inducing_points), :]
     model.build_prior_gp(gp_model='svgp', gp_likelihood='multiclass', num_classes=num_classes,\
                             num_data=N, inducing_points=inducing_points)
 
