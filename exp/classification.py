@@ -172,7 +172,7 @@ def run():
     sess.run(tf.global_variables_initializer())
 
     ############################## train GP firstly ##############################
-    gp_batch_size = min(1000, N)
+    gp_batch_size = min(args.gp_batch_size, N)
     epochs = 10000 * gp_batch_size // N
     # for epoch in range(epochs):
     #     _, loss, var = sess.run(
