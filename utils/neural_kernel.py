@@ -12,6 +12,11 @@ from gpflowSlim import Param
 float_type = gfs.settings.tf_float
 from gpflowSlim import settings
 
+def square_dist(X, X2):
+    Xs = tf.reduce_sum(tf.square(X), 1)
+    X2s = tf.reduce_sum(tf.square(X2), 1)
+    return (-2 * tf.matmul(X, X2, transpose_b=True)
+            + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1)))
 
 def _create_params(input_dim, output_dim, names):
     def initializer():
