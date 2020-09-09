@@ -28,13 +28,18 @@ DATASETS = dict(
     uk='uk.data',
     video_mem='video_mem.data',
     video_time='video_time.data',
+    iris='iris.data',
+    cardio3='cardio3.data',
+    cardio10='cardio10.data',
+    mnist='mnist.data'
 )
 
+CLASSIFICATION = ['iris', 'mnist']
 
 @register('uci_woval')
 def uci_woval(dataset_name, seed=1):
     data = np.loadtxt(os.path.join(data_path, DATASETS[dataset_name]))
-
+    np.random.shuffle(data)
     x, y = data[:, :-1], data[:, -1]
     if dataset_name == 'year':
         x_t, x_v, y_t, y_v = x[:463715], x[463715:], y[:463715], y[463715:]
@@ -42,7 +47,9 @@ def uci_woval(dataset_name, seed=1):
         x_t, x_v, y_t, y_v = train_test_split(x, y, test_size=.1, random_state=seed)
 
     x_t, x_v, _, _ = standardize(x_t, x_v)
-    y_t, y_v, _, train_std = standardize(y_t, y_v)
+    train_std = None
+    if dataset_name not in CLASSIFICATION:
+        y_t, y_v, _, train_std = standardize(y_t, y_v)
 
     hparams = HParams(
         x_train=x_t,

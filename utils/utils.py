@@ -1,7 +1,48 @@
 import matplotlib.pyplot as plt
 from sklearn.cluster import MiniBatchKMeans
 import numpy as np
+import tensorflow as tf
 
+
+def conv2d_with_samples(data, filter, padding='SAME', strides=[1, 1, 1, 1]):
+    return tf.map_fn(lambda u:
+                tf.nn.conv2d(
+                        u[0], u[1],
+                        padding=padding,
+                        strides=strides),
+                        elems=[data, filter])
+
+def max_pool2d_with_samples(data, ksize, strides, padding):
+    return tf.map_fn(lambda u:
+                tf.nn.max_pool2d(
+                        u[0], u[1],
+                        ksize=ksize,
+                        padding=padding,
+                        strides=strides),
+                        elems=[data, filter])
+
+def flatten_rightmost(x, ndims=3):
+    """Flatten rightmost dims."""
+    leftmost_ndims = len(x.shape.as_list()[:-ndims]) #tf.rank(x) - ndims
+    new_shape = tf.pad(
+            x.shape[:leftmost_ndims],
+            paddings=[[0, 1]],
+            constant_values=-1)
+    y = tf.reshape(x, new_shape)
+    if x.shape.ndims is not None:
+        d = x.shape[leftmost_ndims:]
+        d = np.prod(d) if d.is_fully_defined() else None
+        y.set_shape(x.shape[:leftmost_ndims].concatenate(d))
+    return y
+
+def one_hot(data, depth=None, squeeze=True):
+    data = np.array(data, dtype=np.int32)
+    if not depth:
+        depth = data.max() + 1
+    data_hot = np.eye(depth)[data]
+    if squeeze:
+        data_hot = data_hot.squeeze()
+    return data_hot
 
 def default_plotting_new():
     plt.rcParams['font.size'] = 15
