@@ -91,7 +91,7 @@ class AbstractNeuralKernel(gfsk.Kernel):
 
 
 class NeuralSpectralKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
-    def __init__(self, input_dim, active_dims=None, Q=1, hidden_sizes=None, name='NSK'):
+    def __init__(self, input_dim, active_dims=None, Q=1, ARD=True, hidden_sizes=None, name='NSK'):
         super().__init__(input_dim, active_dims=active_dims, Q=Q, hidden_sizes=hidden_sizes, name=name)
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):  ## ??? maybe deeper?
             for v, final_size in zip(['freq', 'len', 'var'], [input_dim, input_dim, 1]):
@@ -117,18 +117,25 @@ class NeuralSpectralKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
             lens, lens2 = self._nn_function(X, 'len', q), self._nn_function(X2, 'len', q)
             var, var2 = self._nn_function(X, 'var', q), self._nn_function(X2, 'var', q)
 
-            # compute length-scale term
-            Xr = tf.expand_dims(X, 1)  # N1 1 D
-            X2r = tf.expand_dims(X2, 0)  # 1 N2 D
-            l1 = tf.expand_dims(lens, 1)  # N1 1 D
-            l2 = tf.expand_dims(lens2, 0)  # 1 N2 D
-            L = tf.square(l1) + tf.square(l2)  # N1 N2 D
-            ######D = tf.square((Xr - X2r) / L)  # N1 N2 D
-            D = tf.square(Xr - X2r) / L  # N1 N2 D
-            D = tf.reduce_sum(D, 2)  # N1 N2
-            det = tf.sqrt(2 * l1 * l2 / L)  # N1 N2 D
-            det = tf.reduce_prod(det, 2)  # N1 N2
-            E = det * tf.exp(-D)  # N1 N2
+            if not self.ARD:
+                ll = tf.matmul(lens, lens2, transpose_b=True)  # l*l'^T
+                # l^2*1^T + 1*(l'^2)^T:
+                ll2 = tf.square(lens) + tf.transpose(tf.square(lens2))
+                D = square_dist(X_data, X2_data)
+                E = tf.sqrt(2 * ll / ll2) * tf.exp(-D/ll2)
+            else:
+                # compute length-scale term
+                Xr = tf.expand_dims(X, 1)  # N1 1 D
+                X2r = tf.expand_dims(X2, 0)  # 1 N2 D
+                l1 = tf.expand_dims(lens, 1)  # N1 1 D
+                l2 = tf.expand_dims(lens2, 0)  # 1 N2 D
+                L = tf.square(l1) + tf.square(l2)  # N1 N2 D
+                ######D = tf.square((Xr - X2r) / L)  # N1 N2 D
+                D = tf.square(Xr - X2r) / L  # N1 N2 D
+                D = tf.reduce_sum(D, 2)  # N1 N2
+                det = tf.sqrt(2 * l1 * l2 / L)  # N1 N2 D
+                det = tf.reduce_prod(det, 2)  # N1 N2
+                E = det * tf.exp(-D)  # N1 N2
 
             # compute cosine term
             muX = (tf.reduce_sum(freq * X, 1, keepdims=True)
@@ -153,7 +160,7 @@ class NeuralSpectralKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
         return tf.squeeze(kd)
 
 class NeuralGibbsKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
-    def __init__(self, input_dim, variance=1.0, active_dims=None, hidden_sizes=None, name='NGK'):
+    def __init__(self, input_dim, variance=1.0, ARD=True, active_dims=None, hidden_sizes=None, name='NGK'):
         super().__init__(input_dim, active_dims=active_dims, Q=1, hidden_sizes=hidden_sizes, name=name)
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):  ## ??? maybe deeper?
             self._create_nn_params('len', hidden_sizes, input_dim)
@@ -173,19 +180,25 @@ class NeuralGibbsKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
             X2 = X
         # compute latent function values by the neural network
         lens, lens2 = self._nn_function(X, 'len'), self._nn_function(X2, 'len')
-
-        # compute length-scale term
-        Xr = tf.expand_dims(X, 1)  # N1 1 D
-        X2r = tf.expand_dims(X2, 0)  # 1 N2 D
-        l1 = tf.expand_dims(lens, 1)  # N1 1 D
-        l2 = tf.expand_dims(lens2, 0)  # 1 N2 D
-        L = tf.square(l1) + tf.square(l2)  # N1 N2 D
-        ######D = tf.square((Xr - X2r) / L)  # N1 N2 D
-        D = tf.square(Xr - X2r) / L  # N1 N2 D
-        D = tf.reduce_sum(D, 2)  # N1 N2
-        det = tf.sqrt(2 * l1 * l2 / L)  # N1 N2 D
-        det = tf.reduce_prod(det, 2)  # N1 N2
-        kern = self.variance * det * tf.exp(-D)  # N1 N2
+        if not self.ARD:
+            ll = tf.matmul(lens, lens2, transpose_b=True)  # l*l'^T
+            # l^2*1^T + 1*(l'^2)^T:
+            ll2 = tf.square(lens) + tf.transpose(tf.square(lens2))
+            D = square_dist(X_data, X2_data)
+            kern = self.variance * tf.sqrt(2 * ll / ll2) * tf.exp(-D/ll2)
+        else:
+            # compute length-scale term
+            Xr = tf.expand_dims(X, 1)  # N1 1 D
+            X2r = tf.expand_dims(X2, 0)  # 1 N2 D
+            l1 = tf.expand_dims(lens, 1)  # N1 1 D
+            l2 = tf.expand_dims(lens2, 0)  # 1 N2 D
+            L = tf.square(l1) + tf.square(l2)  # N1 N2 D
+            ######D = tf.square((Xr - X2r) / L)  # N1 N2 D
+            D = tf.square(Xr - X2r) / L  # N1 N2 D
+            D = tf.reduce_sum(D, 2)  # N1 N2
+            det = tf.sqrt(2 * l1 * l2 / L)  # N1 N2 D
+            det = tf.reduce_prod(det, 2)  # N1 N2
+            kern = self.variance * det * tf.exp(-D)  # N1 N2
 
         if X == X2:
             return robust_kernel(kern, tf.shape(X)[0])
