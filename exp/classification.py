@@ -172,7 +172,7 @@ def run():
 
     ############################## train GP firstly ##############################
     gp_batch_size = min(1000, N)
-    epochs = 50 #10000 * gp_batch_size // N
+    epochs = 10000 * gp_batch_size // N
     # for epoch in range(epochs):
     #     _, loss, var = sess.run(
     #             [model.infer_gp, model.gp_loss],
@@ -230,7 +230,7 @@ def run():
     batch_size = min(500, N)
     best_valid_acc, best_valid_likelihood = -np.float('inf'), -np.float('inf')
     best_test_acc, best_test_likelihood = -np.float('inf'), -np.float('inf')
-    epochs = 20 #80000 * batch_size // N
+    epochs = 80000 * batch_size // N
     lr = args.learning_rate
     for epoch in range(epochs):
         indices = np.random.permutation(N)
