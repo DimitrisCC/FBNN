@@ -98,7 +98,7 @@ class AbstractNeuralKernel(gfsk.Kernel):
 
 class NeuralSpectralKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
     def __init__(self, input_dim, active_dims=None, Q=1, ARD=True, hidden_sizes=None, name='NSK'):
-        super().__init__(input_dim, active_dims=active_dims, Q=Q, hidden_sizes=hidden_sizes, name=name)
+        super().__init__(input_dim, active_dims=active_dims, Q=Q, ARD=ARD, hidden_sizes=hidden_sizes, name=name)
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):  ## ??? maybe deeper?
             for v, final_size in zip(['freq', 'len', 'var'], [input_dim, input_dim, 1]):
                 self._create_nn_params(v, hidden_sizes, final_size)
@@ -167,7 +167,7 @@ class NeuralSpectralKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
 
 class NeuralGibbsKernel(AbstractNeuralKernel):  # gpflow.kernels.Kernel
     def __init__(self, input_dim, variance=1.0, ARD=True, active_dims=None, hidden_sizes=None, name='NGK'):
-        super().__init__(input_dim, active_dims=active_dims, Q=1, hidden_sizes=hidden_sizes, name=name)
+        super().__init__(input_dim, active_dims=active_dims, Q=1, ARD=ARD, hidden_sizes=hidden_sizes, name=name)
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):  ## ??? maybe deeper?
             self._create_nn_params('len', hidden_sizes, input_dim)
             self._variance = Param(variance, transform=gfs.transforms.positive, name='variance')
