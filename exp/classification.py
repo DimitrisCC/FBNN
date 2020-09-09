@@ -40,6 +40,7 @@ parser.add_argument('-gpbs', '--gp_batch_size', type=int, default=1000)
 parser.add_argument('-npr', '--n_particles', type=int, default=100)
 parser.add_argument('-bm', '--belief_matching', type=bool, default=False)
 parser.add_argument('-Z', '--inducing_points', type=int, default=0)
+parser.add_argument('-nl', '--n_layers', type=int, default=1)
 
 parser.add_argument('--seed', type=int, default=123)
 args = parser.parse_args()
@@ -157,7 +158,7 @@ def run():
     def rand_generator(*arg):
         return tf.random_uniform(shape=[args.n_rand, D], minval=lower_ap, maxval=upper_ap)
 
-    layer_sizes = [D] + [100] + [num_classes]
+    layer_sizes = [D] + [100]*args.n_layers + [num_classes]
 
     model = EntropyEstimationFVI(
         kern, get_posterior('bnn', classification=True)(layer_sizes, logstd_init=-5.), rand_generator=rand_generator,
