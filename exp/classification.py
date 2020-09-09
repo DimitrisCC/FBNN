@@ -35,7 +35,7 @@ parser.add_argument('-arate', '--anneal_lr_ratio', type=int, default=0.1)
 parser.add_argument('-kernel', '--kernel', default='rbf')
 parser.add_argument('-kh', '--kernel_hidden', type=int, default=32)
 parser.add_argument('-Q', '--components', type=int, default=3)
-parser.add_argument('-bs', '--batch_size', type=int, default=1000)
+parser.add_argument('-bs', '--batch_size', type=int, default=100)
 parser.add_argument('-npr', '--n_particles', type=int, default=100)
 parser.add_argument('-bm', '--belief_matching', type=bool, default=False)
 
@@ -227,7 +227,7 @@ def run():
     print('>>> GP Prior with {} fit: acc={:.5f} | lld={:.5f}'.format(kern.name, gp_acc.item(), gp_logll.item()))
 
     ############################## train FBNN ##############################
-    batch_size = min(500, N)
+    batch_size = min(args.batch_size, N)
     best_valid_acc, best_valid_likelihood = -np.float('inf'), -np.float('inf')
     best_test_acc, best_test_likelihood = -np.float('inf'), -np.float('inf')
     epochs = 80000 * batch_size // N
