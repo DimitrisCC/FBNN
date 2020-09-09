@@ -39,6 +39,7 @@ parser.add_argument('-bs', '--batch_size', type=int, default=500)
 parser.add_argument('-gpbs', '--gp_batch_size', type=int, default=1000)
 parser.add_argument('-npr', '--n_particles', type=int, default=100)
 parser.add_argument('-bm', '--belief_matching', type=bool, default=False)
+parser.add_argument('-Z', '--inducing_points', type=int, default=0)
 
 parser.add_argument('--seed', type=int, default=123)
 args = parser.parse_args()
@@ -163,8 +164,10 @@ def run():
         obs_var=None, input_dim=D, n_rand=args.n_rand, injected_noise=0.01,
         likelihood=likelihood, classification=True, num_classes=num_classes)
 
+    inducing_points = x_train if args.inducing_points == 0 \
+                else x_train[np.random.choice(x.shape[0], replace=False, size=args.inducing_points), :]
     model.build_prior_gp(gp_model='svgp', gp_likelihood='multiclass', num_classes=num_classes,\
-                            num_data=N, inducing_points=x_train)
+                            num_data=N, inducing_points=inducing_points)
 
     ####### Initialize session #######
     sess = tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=10,
