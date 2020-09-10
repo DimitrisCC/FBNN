@@ -38,10 +38,10 @@ parser.add_argument('-Q', '--components', type=int, default=3)
 parser.add_argument('-bs', '--batch_size', type=int, default=500)
 parser.add_argument('-gpbs', '--gp_batch_size', type=int, default=1000)
 parser.add_argument('-npr', '--n_particles', type=int, default=100)
-parser.add_argument('-bm', '--belief_matching', type=bool, default=False)
+parser.add_argument('-bm', '--belief_matching', type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False)
 parser.add_argument('-Z', '--inducing_points', type=int, default=0)
 parser.add_argument('-nl', '--n_layers', type=int, default=1)
-parser.add_argument('-ard', '--ARD', type=bool, default=False)
+parser.add_argument('-ard', '--ARD', type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=True)
 
 parser.add_argument('--seed', type=int, default=123)
 args = parser.parse_args()
@@ -116,6 +116,9 @@ class MulticlassLikelihood:
         return tf.reduce_mean(lkh_elbo_loss)
 
 def run():
+    print('ARD', args.ARD)
+    print('BM', args.belief_matching)
+    exit()
     data = uci_woval(args.dataset, args.seed*666)
     tf.set_random_seed(args.seed * 666)
     np.random.seed(args.seed * 666)
