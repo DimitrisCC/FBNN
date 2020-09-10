@@ -116,9 +116,6 @@ class MulticlassLikelihood:
         return tf.reduce_mean(lkh_elbo_loss)
 
 def run():
-    print('ARD', args.ARD)
-    print('BM', args.belief_matching)
-    exit()
     data = uci_woval(args.dataset, args.seed*666)
     tf.set_random_seed(args.seed * 666)
     np.random.seed(args.seed * 666)
