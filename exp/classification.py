@@ -26,13 +26,13 @@ from utils.neural_kernel import NeuralSpectralKernel, NeuralGibbsKernel
 
 
 parser = argparse.ArgumentParser('Classification')
-parser.add_argument('-d', '--dataset', type=str, default='cardio3')
+parser.add_argument('-d', '--dataset', type=str, default='cancer')
 #tuning
 parser.add_argument('-na', '--n_rand', type=int, default=5)
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001)
 parser.add_argument('-aiter', '--anneal_lr_iters', type=int, default=100000000)
 parser.add_argument('-arate', '--anneal_lr_ratio', type=int, default=0.1)
-parser.add_argument('-kernel', '--kernel', default='rbf')
+parser.add_argument('-kernel', '--kernel', default='gibbs')
 parser.add_argument('-kh', '--kernel_hidden', type=int, default=32)
 parser.add_argument('-Q', '--components', type=int, default=3)
 parser.add_argument('-bs', '--batch_size', type=int, default=500)
@@ -41,7 +41,7 @@ parser.add_argument('-npr', '--n_particles', type=int, default=100)
 parser.add_argument('-bm', '--belief_matching', type=bool, default=False)
 parser.add_argument('-Z', '--inducing_points', type=int, default=0)
 parser.add_argument('-nl', '--n_layers', type=int, default=1)
-parser.add_argument('-ard', '--ARD', type=bool, default=True)
+parser.add_argument('-ard', '--ARD', type=bool, default=False)
 
 parser.add_argument('--seed', type=int, default=123)
 args = parser.parse_args()
