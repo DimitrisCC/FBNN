@@ -74,7 +74,6 @@ def NKNInfo(input_dim):
 class MulticlassLikelihood:
     def __init__(self, num_classes, num_points, use_belief_matching=False):
         with tf.variable_scope('likelihood'):
-            #TODO no stop gradient? (v2)
             self.ll_ce = tf.nn.sparse_softmax_cross_entropy_with_logits
             self.num_classes = num_classes
             self.N = num_points

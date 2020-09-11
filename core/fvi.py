@@ -175,7 +175,6 @@ class EntropyEstimationFVI(AbstractFVI):
         else:
             prior_dist = mvn_fc(tf.zeros([tf.shape(self.x_rand)[0]], dtype=tf.float64), kernel_matrix)
         cross_entropy = -tf.reduce_mean(prior_dist.log_prob(tf.to_double(self.noisy_func_x_rand)))
-        self.kernel_matrix = cross_entropy
         self.kl_surrogate = -entropy_sur + tf.to_float(cross_entropy)
 
     def build_prior_gp(self, gp_model='gpr', gp_likelihood='Gaussian', num_classes=None, init_var=0.1, inducing_points=None,\

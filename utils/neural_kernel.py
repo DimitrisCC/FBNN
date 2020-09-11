@@ -28,20 +28,21 @@ def _create_params(input_dim, output_dim, names):
 
 
 def robust_kernel(kern, shape_X):
-    with tf.device("/cpu:0"):
-        # eigvals = tf.self_adjoint_eigvals(kern)
-        eigvals, _ = tf.linalg.eigh(kern)
-    min_eig = tf.reduce_min(eigvals)
+    # with tf.device("/cpu:0"):
+    #     # eigvals = tf.self_adjoint_eigvals(kern)
+    #     eigvals, _ = tf.linalg.eigh(kern)
+    # min_eig = tf.reduce_min(eigvals)
     jitter = settings.numerics.jitter_level
 
-    def abs_min_eig():
-        return tf.Print(tf.abs(min_eig), [min_eig], 'kernel had negative eigenvalue ')
+    # def abs_min_eig():
+    #     return tf.Print(tf.abs(min_eig), [min_eig], 'kernel had negative eigenvalue ')
 
-    def zero():
-        return float_type(0.0)
+    # def zero():
+    #     return float_type(0.0)
 
-    jitter += tf.cond(tf.less(min_eig, 0.0), abs_min_eig, zero)
-    return kern + jitter * tf.eye(shape_X, dtype=tf.float64)
+    # jitter += tf.cond(tf.less(min_eig, 0.0), abs_min_eig, zero)
+
+    return kern + jitter*2 * tf.eye(shape_X, dtype=tf.float64)
 
 
 class AbstractNeuralKernel(gfsk.Kernel):
