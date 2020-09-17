@@ -39,11 +39,11 @@ DATASETS = dict(
 CLASSIFICATION = ['iris', 'mnist']
 
 def load_mnist():
-    train_path = os.path.join(root_path, 'data', 'mnist_train_demo.csv')
+    train_path = os.path.join(root_path, 'data', 'mnist_train.csv')
     train = np.loadtxt(train_path, delimiter=',')
     np.random.shuffle(train)
     x_train_flat, y_train = train[:, 1:], train[:, 0]
-    test_path = os.path.join(root_path, 'data', 'mnist_test_demo.csv')
+    test_path = os.path.join(root_path, 'data', 'mnist_test.csv')
     test = np.loadtxt(test_path, delimiter=',')
     np.random.shuffle(test)
     x_test_flat, y_test = test[:, 1:], test[:, 0]
