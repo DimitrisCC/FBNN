@@ -10,30 +10,38 @@ def conv2d_with_samples(data, filter, padding='SAME', strides=[1, 1, 1, 1]):
                         u[0], u[1],
                         padding=padding,
                         strides=strides),
-                        elems=[data, filter])
+                        elems=[data, filter],
+                        dtype=tf.float32)
 
 def max_pool2d_with_samples(data, ksize, strides, padding):
     return tf.map_fn(lambda u:
-                tf.nn.max_pool2d(
-                        u[0], u[1],
+                tf.nn.max_pool2d(u,
                         ksize=ksize,
                         padding=padding,
                         strides=strides),
-                        elems=[data, filter])
+                        elems=data,
+                        dtype=tf.float32)
 
 def flatten_rightmost(x, ndims=3):
-    """Flatten rightmost dims."""
-    leftmost_ndims = len(x.shape.as_list()[:-ndims]) #tf.rank(x) - ndims
-    new_shape = tf.pad(
-            x.shape[:leftmost_ndims],
-            paddings=[[0, 1]],
-            constant_values=-1)
-    y = tf.reshape(x, new_shape)
-    if x.shape.ndims is not None:
-        d = x.shape[leftmost_ndims:]
-        d = np.prod(d) if d.is_fully_defined() else None
-        y.set_shape(x.shape[:leftmost_ndims].concatenate(d))
-    return y
+    leftmost_ndims = len(x.shape.as_list()[:-ndims])
+    leftmost_dims = tf.shape(x)[:leftmost_ndims]
+    flattened_dim = tf.reduce_prod(x.shape[-ndims:], keepdims=True)
+    new_dims = tf.concat([leftmost_dims, flattened_dim], axis=0)
+    flattened_x = tf.reshape(x, new_dims)
+    return flattened_x
+    # """Flatten rightmost dims."""
+    # leftmost_ndims = len(x.shape.as_list()[:-ndims]) #tf.rank(x) - ndims
+    # leftmost = x.shape[:leftmost_ndims]
+    # new_shape = tf.pad(
+    #         leftmost,
+    #         paddings=[[0, 1]],
+    #         constant_values=-1)
+    # y = tf.reshape(x, new_shape)
+    # if x.shape.ndims is not None:
+    #     d = x.shape[leftmost_ndims:]
+    #     d = np.prod(d) if d.is_fully_defined() else None
+    #     y.set_shape(x.shape[:leftmost_ndims].concatenate(d))
+    # return y
 
 def one_hot(data, depth=None, squeeze=True):
     data = np.array(data, dtype=np.int32)

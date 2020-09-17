@@ -38,6 +38,30 @@ DATASETS = dict(
 
 CLASSIFICATION = ['iris', 'mnist']
 
+def load_mnist():
+    train_path = os.path.join(root_path, 'data', 'mnist_train_demo.csv')
+    train = np.loadtxt(train_path, delimiter=',')
+    np.random.shuffle(train)
+    x_train_flat, y_train = train[:, 1:], train[:, 0]
+    test_path = os.path.join(root_path, 'data', 'mnist_test_demo.csv')
+    test = np.loadtxt(test_path, delimiter=',')
+    np.random.shuffle(test)
+    x_test_flat, y_test = test[:, 1:], test[:, 0]
+    x_train_flat, x_test, _, _ = standardize(x_train_flat, x_test_flat)
+    width = height = int(np.sqrt(x_train_flat.shape[1]))
+    x_train = x_train_flat.reshape(x_train_flat.shape[0], width, height, 1)
+    x_test = x_test_flat.reshape(x_test_flat.shape[0], width, height, 1)
+    hparams = HParams(
+        x_train=x_train,
+        x_test=x_test,
+        x_train_flat=x_train_flat,
+        x_test_flat=x_test_flat,
+        y_train=y_train,
+        y_test=y_test,
+        std_y_train=None
+    )
+    return hparams
+
 @register('uci_woval')
 def uci_woval(dataset_name, seed=1):
     data = np.loadtxt(os.path.join(data_path, DATASETS[dataset_name]))

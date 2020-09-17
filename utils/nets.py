@@ -14,7 +14,7 @@ def get_posterior(name, classification=False):
 
 
 def bnn_outer(activation, type='bnn', classification=False):
-    def bnn_inner(layer_sizes, logstd_init=-5.):
+    def bnn_inner(layer_sizes, logstd_init=-5., img_shape=None):
         @zs.reuse('posterior')
         def bnn(x, n_particles):
             # x: [batch_size, input_dim]
@@ -53,6 +53,7 @@ def bnn_outer(activation, type='bnn', classification=False):
         @zs.reuse('posterior')
         def cbnn(x, n_particles):
             # x: [batch, in_height, in_width, in_channels]
+            x = tf.reshape(x, [-1]+img_shape)
             h = tf.tile(tf.expand_dims(x, 0), [n_particles, 1, 1, 1, 1])
 
             for i, (n_in, n_out) in enumerate(zip(layer_sizes[:-2],
@@ -83,7 +84,7 @@ def bnn_outer(activation, type='bnn', classification=False):
             #### flatten
             h = flatten_rightmost(h, ndims=3)
             ###### DENSE ######
-            n_in = int(h.shape[-1])
+            n_in = h.shape[-1]
             n_out = layer_sizes[-1]
             w_mean = tf.get_variable('w_mean', shape=[n_in, n_out],
                                          initializer=tf.contrib.layers.xavier_initializer())
@@ -106,6 +107,7 @@ def bnn_outer(activation, type='bnn', classification=False):
             else:
                 h = tf.squeeze(h, -1)
                 # h: [n_particles, N]
+            return h
         if type == 'cbnn':
             return cbnn
         else:
